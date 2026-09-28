@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card narrow center">
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ message }}</p>
+  {% if back %}<a class="secondary" href="{{ back }}">Back</a>{% endif %}
+</section>
+{% endblock %}

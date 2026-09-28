@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Log in · F5 Report Generator{% endblock %}
+{% block content %}
+<section class="card narrow center">
+  <span class="badge-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="4.5" y="10" width="15" height="11" rx="2.5" fill="currentColor"/></svg>
+  </span>
+  <h1>Welcome back</h1>
+  <p class="muted">Enter the team password to generate the MTN F5 reports.</p>
+  <form method="post" class="stack">
+    <label for="password" class="sr-only">Password</label>
+    <input id="password" name="password" type="password" placeholder="Team password" autocomplete="current-password" required autofocus>
+    <button class="primary block" type="submit">Log in</button>
+  </form>
+</section>
+{% endblock %}

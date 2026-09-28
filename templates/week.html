@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>Choose the week</h1>
+
+  {% if info.sheet_warnings %}
+  <div class="callout warn">
+    <strong>Sheet check - a few names needed a second look</strong>
+    <p>You can still generate; just make sure the week below is the one you expect.</p>
+    <ul>{% for w in info.sheet_warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  </div>
+  {% else %}
+  <div class="callout ok"><strong>Sheet check passed</strong> - all recent sheet names read correctly.</div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('generate', job_id=job_id) }}" id="gen-form" class="stack">
+    <label for="week_end" class="field-label">Week</label>
+    <div class="select">
+      <select id="week_end" name="week_end">
+        {% for o in info.options %}
+        <option value="{{ o.value }}" {% if o.selected %}selected{% endif %}>{{ o.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <p class="hint">Certificates: {{ certs[1] }}.</p>
+    <button class="primary" type="submit" id="gen-btn"><span class="spinner" aria-hidden="true"></span><span class="label">Generate report</span></button>
+    <p class="hint" id="working" hidden>Generating… about 30 seconds (up to a minute if someone else is generating one too).</p>
+  </form>
+</section>
+
+<section class="card subtle">
+  <h2>Next week's sheet names</h2>
+  <p class="muted">Name next week's sheets exactly like this - they fit Excel's 31-character limit.</p>
+  <ul class="names">{% for n in info.next_names %}<li><code>{{ n }}</code></li>{% endfor %}</ul>
+</section>
+
+<form method="post" action="{{ url_for('done', job_id=job_id) }}" class="centered">
+  <button class="ghost small" type="submit">Cancel and delete my upload</button>
+</form>
+<script>
+  document.getElementById('gen-form').addEventListener('submit', function () {
+    var btn = document.getElementById('gen-btn');
+    btn.disabled = true; btn.classList.add('busy');
+    btn.querySelector('.label').textContent = 'Generating…';
+    document.getElementById('working').hidden = false;
+  });
+</script>
+{% endblock %}

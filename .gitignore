@@ -1,0 +1,16 @@
+# This folder is the git repository. NEVER commit MTN data: every
+# spreadsheet / deck is ignored except the two blank templates the app needs.
+*.xlsx
+*.pptx
+!MTN_F5_WAF_Weekly_Report_Temp.xlsx
+!MTN_Security_Metrics_Report_SOURCE.pptx
+~$*
+# text copy of the certificate list made for Render - also MTN data
+*.b64
+*.b64.txt
+
+weekly_output/
+venv/
+.venv/
+__pycache__/
+*.pyc

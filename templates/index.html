@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% set step = 1 %}
+{% block content %}
+<section class="card">
+  <h1>Generate a report</h1>
+  <p class="muted lead">Upload this week's source spreadsheet - you'll pick the week on the next screen.</p>
+
+  <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" id="upload-form" class="stack">
+    <div class="segmented" role="radiogroup" aria-label="Report type">
+      <label><input type="radio" name="report_type" value="weekly" checked><span>Weekly</span></label>
+      <label class="off"><input type="radio" name="report_type" value="monthly" disabled><span>Monthly <em>soon</em></span></label>
+    </div>
+
+    <label class="drop" data-empty="Choose MTN_F5_ATTACKS_SOURCE.xlsx">
+      <input name="source" type="file" accept=".xlsx" required>
+      <span class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 16V4m0 0-4.5 4.5M12 4l4.5 4.5M5 16v2.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="drop-title">Source spreadsheet</span>
+      <span class="drop-name">Choose MTN_F5_ATTACKS_SOURCE.xlsx</span>
+    </label>
+
+    <div class="certs">
+      <div class="certs-row">
+        <span class="certs-label">Certificate list</span>
+        {% if default_certs %}
+          <span class="pill ok">Saved default{% if default_certs_info %} · {{ default_certs_info }}{% endif %}</span>
+        {% else %}
+          <span class="pill warn">No saved default</span>
+        {% endif %}
+      </div>
+      <details {% if not default_certs %}open{% endif %}>
+        <summary>{% if default_certs %}Use a different certificate file{% else %}Upload a certificate file (optional){% endif %}</summary>
+        <label class="drop small" data-empty="Choose Certificate.xlsx">
+          <input name="certs" type="file" accept=".xlsx">
+          <span class="drop-name">Choose Certificate.xlsx</span>
+        </label>
+        <p class="hint">Only for this report - the saved default stays the same.{% if not default_certs %} Without one, the report is built without the certificate slides.{% endif %}</p>
+      </details>
+    </div>
+
+    <button class="primary" type="submit" id="upload-btn"><span class="spinner" aria-hidden="true"></span><span class="label">Upload</span></button>
+    <p class="hint" id="uploading" hidden>Uploading… a large workbook can take a minute on a slow connection.</p>
+  </form>
+</section>
+<p class="hint centered">Files are deleted when you click "Done", or automatically {{ ttl }} minutes after uploading.</p>
+<script>
+  document.querySelectorAll('.drop input[type=file]').forEach(function (input) {
+    input.addEventListener('change', function () {
+      var drop = input.closest('.drop');
+      var name = input.files.length ? input.files[0].name : drop.dataset.empty;
+      drop.querySelector('.drop-name').textContent = name;
+      drop.classList.toggle('chosen', input.files.length > 0);
+    });
+  });
+  document.getElementById('upload-form').addEventListener('submit', function () {
+    var btn = document.getElementById('upload-btn');
+    btn.disabled = true; btn.classList.add('busy');
+    btn.querySelector('.label').textContent = 'Uploading…';
+    document.getElementById('uploading').hidden = false;
+  });
+</script>
+{% endblock %}

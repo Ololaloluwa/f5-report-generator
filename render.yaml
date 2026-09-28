@@ -1,0 +1,22 @@
+# Render deploy settings for the F5 report web app (free plan).
+# This folder is the repository root, so Render finds this file by itself.
+# APP_PASSWORD is typed into the Render dashboard - it is never stored here.
+# The default certificate list is added in the dashboard as a Secret File
+# named Certificate.xlsx.b64 (see README.md), so it never goes into GitHub.
+services:
+  - type: web
+    name: f5-report-generator
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # One worker (the free plan has 512 MB; one report run peaks ~215 MB),
+    # a few threads so pages stay responsive while a report is generating,
+    # and a long timeout because a big upload + report can take a minute.
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 300
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true

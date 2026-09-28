@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">Weekly report</p>
+  <h1>{{ result.week_label }}</h1>
+
+  {% if not ok %}
+  <div class="status fail">
+    <span class="status-icon" aria-hidden="true">!</span>
+    <div>
+      <strong>There's an issue with this report - check it before sending</strong>
+      <p>The files were still generated, but at least one check failed, so some numbers may be wrong or missing. Look at the sheet or table named below in the source spreadsheet first.</p>
+      <ul>{% for f in fails %}<li>{{ f[7:] }}</li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% else %}
+  <div class="status ok">
+    <span class="status-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <div><strong>All checks passed</strong>{% if warnings %}<p>A few notes below are worth a glance.</p>{% else %}<p>Good to send.</p>{% endif %}</div>
+  </div>
+  {% endif %}
+
+  <div class="downloads">
+    <a class="file" href="{{ url_for('download', job_id=job_id, kind='pptx') }}">
+      <span class="file-icon pptx">PPT</span>
+      <span class="file-text"><strong>PowerPoint deck</strong><small>{{ pptx_name }}</small></span>
+      <span class="file-go" aria-hidden="true">↓</span>
+    </a>
+    <a class="file" href="{{ url_for('download', job_id=job_id, kind='xlsx') }}">
+      <span class="file-icon xlsx">XLS</span>
+      <span class="file-text"><strong>Excel workbook</strong><small>{{ xlsx_name }}</small></span>
+      <span class="file-go" aria-hidden="true">↓</span>
+    </a>
+  </div>
+
+  {% if warnings %}
+  <div class="callout warn">
+    <strong>Notes</strong>
+    <p>Heads-ups, not errors - they don't block the report.</p>
+    <ul>{% for w in warnings %}<li>{{ w.replace('[WARN] ', '') }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <p class="hint">Certificates: {{ certs[1] }}.</p>
+  <details class="checks">
+    <summary>All checks ({{ passes|length }} passed{% if fails %}, {{ fails|length }} failed{% endif %})</summary>
+    <ul class="mono">{% for l in passes + fails %}<li>{{ l }}</li>{% endfor %}</ul>
+  </details>
+
+  <div class="actions">
+    <a class="secondary" href="{{ url_for('job', job_id=job_id) }}">Generate another week</a>
+    <form method="post" action="{{ url_for('done', job_id=job_id) }}">
+      <button class="secondary" type="submit">Done - delete my files</button>
+    </form>
+  </div>
+</section>
+<p class="hint centered">If you don't click "Done", the files are deleted automatically {{ ttl }} minutes after uploading.</p>
+{% endblock %}
