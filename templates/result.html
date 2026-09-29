@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <p class="eyebrow">Weekly report</p>
-  <h1>{{ result.week_label }}</h1>
+  <p class="eyebrow">{{ 'Monthly' if monthly else 'Weekly' }} report</p>
+  <h1>{{ report_label }}</h1>
 
   {% if not ok %}
   <div class="status fail">
@@ -50,7 +50,7 @@
   </details>
 
   <div class="actions">
-    <a class="secondary" href="{{ url_for('job', job_id=job_id) }}">Generate another week</a>
+    <a class="secondary" href="{{ url_for('job', job_id=job_id) }}">Generate another {{ 'month' if monthly else 'week' }}</a>
     <form method="post" action="{{ url_for('done', job_id=job_id) }}">
       <button class="secondary" type="submit">Done - delete my files</button>
     </form>

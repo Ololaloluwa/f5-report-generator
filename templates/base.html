@@ -52,7 +52,7 @@
   <main class="wrap">
     {% if step %}
     <ol class="steps" aria-label="Progress">
-      {% for n, name in [(1, 'Upload'), (2, 'Choose week'), (3, 'Download')] %}
+      {% for n, name in [(1, 'Upload'), (2, 'Choose month' if monthly else 'Choose week'), (3, 'Download')] %}
       <li class="{% if n < step %}done{% elif n == step %}current{% endif %}"><span class="num">{{ n }}</span>{{ name }}</li>
       {% endfor %}
     </ol>

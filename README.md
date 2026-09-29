@@ -1,7 +1,8 @@
 # F5 Report Generator - web version
 
-The weekly MTN F5 report from a website: log in, upload the source
-spreadsheet, pick the week from a list, download the PowerPoint and Excel.
+The weekly and monthly MTN F5 reports from a website: log in, choose
+Weekly or Monthly, upload the source spreadsheet, pick the week or month
+from a list, download the PowerPoint and Excel.
 
 **This folder is self-contained - it is the git repository.** The report
 code, both blank templates, `requirements.txt` and `render.yaml` are all
@@ -36,7 +37,9 @@ Windows (git-scm.com - install with the defaults), and this folder.
 ### Part A - Clean the folder
 1. Make sure this folder only has what the site needs. It should contain:
    `app.py`, `generate_weekly_report.py`, `generate_weekly_excel.py`,
-   `run_weekly_reports.py`, `validate_outputs.py`, the two templates
+   `run_weekly_reports.py`, `validate_outputs.py`,
+   `generate_monthly_report.py`, `generate_monthly_excel.py`,
+   `run_monthly_reports.py`, the two templates
    (`MTN_Security_Metrics_Report_SOURCE.pptx`,
    `MTN_F5_WAF_Weekly_Report_Temp.xlsx`), `requirements.txt`,
    `render.yaml`, `.gitignore`, `README.md`, and the `templates` and

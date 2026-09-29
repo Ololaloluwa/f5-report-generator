@@ -10,6 +10,7 @@
 *.b64.txt
 
 weekly_output/
+monthly_output/
 venv/
 .venv/
 __pycache__/

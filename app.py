@@ -3,16 +3,18 @@ MTN F5 Report Generator - web app
 ===================================
 
 A small Flask site in front of the SAME code the .bat file runs
-(run_weekly_reports.generate_reports / validate_outputs.run_checks) - it
+(run_weekly_reports.generate_reports / validate_outputs.run_checks, and
+run_monthly_reports.generate_monthly_reports for the monthly report) - it
 never re-implements report logic, so the website and the .bat file can't
 drift apart.
 
 Flow:
   1. /login        shared team password (APP_PASSWORD environment variable)
-  2. /             choose report type (Weekly; Monthly "coming soon") and
+  2. /             choose report type (Weekly or Monthly) and
                    upload MTN_F5_ATTACKS_SOURCE.xlsx. The saved default
                    Certificate.xlsx is used unless they upload a different one.
-  3. /job/<id>     sheet check + week dropdown + next week's sheet names
+  3. /job/<id>     weekly: sheet check + week dropdown + next week's sheet names
+                   monthly: month dropdown (months the file covers)
   4. generate      builds the deck + Excel, runs validation, shows results
                    (a [FAIL] shows a red warning banner but downloads stay
                    available - confirmed with the user 28-Sep-2026)
@@ -71,6 +73,7 @@ if APP_DIR not in sys.path:
 import openpyxl                               # noqa: E402
 import generate_weekly_report as pptx_gen     # noqa: E402
 import run_weekly_reports                     # noqa: E402
+import run_monthly_reports                    # noqa: E402
 import validate_outputs                       # noqa: E402
 
 PPTX_TEMPLATE = os.path.join(APP_DIR, "MTN_Security_Metrics_Report_SOURCE.pptx")
@@ -278,6 +281,20 @@ def _read_weeks(source_path):
 # Pages
 # --------------------------------------------------------------------------
 
+def _read_months(source_path):
+    """Sheet names only -> the months for the monthly dropdown (None if there are none)."""
+    wb = openpyxl.load_workbook(source_path, read_only=True)
+    try:
+        names = list(wb.sheetnames)
+    finally:
+        wb.close()
+    return run_monthly_reports.month_options(names)
+
+
+def _is_monthly(job_path):
+    return os.path.exists(os.path.join(job_path, "monthly"))
+
+
 @app.route("/")
 @login_required
 def index():
@@ -289,9 +306,9 @@ def index():
 @app.route("/upload", methods=["POST"])
 @login_required
 def upload():
-    if request.form.get("report_type", "weekly") != "weekly":
-        flash("Only the weekly report is available so far.", "error")
-        return redirect(url_for("index"))
+    report_type = request.form.get("report_type", "weekly")
+    if report_type not in ("weekly", "monthly"):
+        abort(400)
 
     source = request.files.get("source")
     certs = request.files.get("certs")
@@ -308,12 +325,15 @@ def upload():
     path = os.path.join(JOBS_DIR, job_id)
     os.makedirs(path)
     open(os.path.join(path, "created"), "w").close()
+    if report_type == "monthly":
+        open(os.path.join(path, "monthly"), "w").close()
     source.save(os.path.join(path, "source.xlsx"))
     if certs and certs.filename:
         certs.save(os.path.join(path, "certs.xlsx"))
 
     try:
-        info = _read_weeks(os.path.join(path, "source.xlsx"))
+        reader = _read_months if report_type == "monthly" else _read_weeks
+        info = reader(os.path.join(path, "source.xlsx"))
     except Exception:
         shutil.rmtree(path, ignore_errors=True)
         flash("That file couldn't be opened as an Excel workbook.", "error")
@@ -330,6 +350,10 @@ def upload():
 @login_required
 def job(job_id):
     path = _job_dir(job_id)
+    if _is_monthly(path):
+        info = _read_months(os.path.join(path, "source.xlsx"))
+        return render_template("month.html", job_id=job_id, info=info, step=2, monthly=True,
+                               certs=_certs_choice(path))
     info = _read_weeks(os.path.join(path, "source.xlsx"))
     return render_template("week.html", job_id=job_id, info=info, step=2,
                            certs=_certs_choice(path))
@@ -353,6 +377,8 @@ def _certs_choice(job_path):
 @login_required
 def generate(job_id):
     path = _job_dir(job_id)
+    if _is_monthly(path):
+        return _generate_monthly(job_id, path)
     try:
         week_end = date.fromisoformat(request.form["week_end"])
     except (KeyError, ValueError):
@@ -378,8 +404,41 @@ def generate(job_id):
     lines = [l for l in checks.lines if l.startswith("[")]
     warnings = list(dict.fromkeys(result.warnings + [l for l in lines if l.startswith("[WARN]")]))
     return render_template(
-        "result.html", job_id=job_id, result=result, ok=checks.ok,
+        "result.html", job_id=job_id, result=result, ok=checks.ok, report_label=result.week_label,
         fails=[l for l in lines if l.startswith("[FAIL]")], warnings=warnings,
+        passes=[l for l in lines if l.startswith("[PASS]")],
+        pptx_name=os.path.basename(result.pptx_path), xlsx_name=os.path.basename(result.xlsx_path),
+        certs=_certs_choice(path), step=3)
+
+
+def _generate_monthly(job_id, path):
+    try:
+        year, month = (int(x) for x in request.form["month"].split("-"))
+        if not 1 <= month <= 12:
+            raise ValueError
+    except (KeyError, ValueError):
+        abort(400)
+
+    out_dir = os.path.join(path, "output")
+    shutil.rmtree(out_dir, ignore_errors=True)   # re-generating another month replaces the last one
+    with _generate_lock:
+        try:
+            result = run_monthly_reports.generate_monthly_reports(
+                os.path.join(path, "source.xlsx"), PPTX_TEMPLATE, XLSX_TEMPLATE, out_dir,
+                month=(year, month), log=lambda _m: None, certs=_certs_choice(path)[0])
+        except Exception as e:
+            app.logger.exception("monthly report generation failed")
+            return render_template("message.html", title="Something went wrong",
+                                   message=f"The report couldn't be generated: {e}. Nothing was "
+                                           f"produced - check the source spreadsheet, or send this "
+                                           f"message to Olola.",
+                                   back=url_for("job", job_id=job_id)), 500
+
+    lines = result.checks
+    warnings = list(dict.fromkeys(result.warnings + [l for l in lines if l.startswith("[WARN]")]))
+    return render_template(
+        "result.html", job_id=job_id, result=result, ok=result.ok, report_label=result.month_label,
+        monthly=True, fails=[l for l in lines if l.startswith("[FAIL]")], warnings=warnings,
         passes=[l for l in lines if l.startswith("[PASS]")],
         pptx_name=os.path.basename(result.pptx_path), xlsx_name=os.path.basename(result.xlsx_path),
         certs=_certs_choice(path), step=3)

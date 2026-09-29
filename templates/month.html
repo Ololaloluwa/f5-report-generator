@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>Choose the month</h1>
+  <p class="muted lead">Whole weeks come from each sheet's Weekly tables; a week that runs into another month only counts this month's days, from its day tables. Earlier months on the trend chart are worked out from the same file.</p>
+
+  <form method="post" action="{{ url_for('generate', job_id=job_id) }}" id="gen-form" class="stack">
+    <label for="month" class="field-label">Month</label>
+    <div class="select">
+      <select id="month" name="month">
+        {% for o in info.options %}
+        <option value="{{ o.value }}" {% if o.selected %}selected{% endif %}>{{ o.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <p class="hint">A month with days not in the file yet can still be generated - those days just aren't counted, and the report says so. Pool member status is taken from the last day of the month.</p>
+    <p class="hint">Certificates: {{ certs[1] }}.</p>
+    <button class="primary" type="submit" id="gen-btn"><span class="spinner" aria-hidden="true"></span><span class="label">Generate report</span></button>
+    <p class="hint" id="working" hidden>Generating… about a minute (a bit longer if someone else is generating one too).</p>
+  </form>
+</section>
+
+<form method="post" action="{{ url_for('done', job_id=job_id) }}" class="centered">
+  <button class="ghost small" type="submit">Cancel and delete my upload</button>
+</form>
+<script>
+  document.getElementById('gen-form').addEventListener('submit', function () {
+    var btn = document.getElementById('gen-btn');
+    btn.disabled = true; btn.classList.add('busy');
+    btn.querySelector('.label').textContent = 'Generating…';
+    document.getElementById('working').hidden = false;
+  });
+</script>
+{% endblock %}
