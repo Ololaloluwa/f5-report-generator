@@ -20,6 +20,15 @@
       <span class="drop-name">Choose MTN_F5_ATTACKS_SOURCE.xlsx</span>
     </label>
 
+    <div class="activity" id="activity-box" hidden>
+      <label class="drop small" data-empty="Choose the month's weekly activity reports">
+        <input name="activity" type="file" accept=".xlsx" multiple>
+        <span class="drop-title">Weekly activity reports <em class="opt">optional</em></span>
+        <span class="drop-name">Choose the month's weekly activity reports</span>
+      </label>
+      <p class="hint">Select all of the month's F5_Weekly_Activity_Report files at once (include the weeks that run into the next or previous month) to also get the monthly activity report. Files for other weeks are ignored.</p>
+    </div>
+
     <div class="certs">
       <div class="certs-row">
         <span class="certs-label">Certificate list</span>
@@ -48,7 +57,8 @@
   document.querySelectorAll('.drop input[type=file]').forEach(function (input) {
     input.addEventListener('change', function () {
       var drop = input.closest('.drop');
-      var name = input.files.length ? input.files[0].name : drop.dataset.empty;
+      var name = !input.files.length ? drop.dataset.empty
+               : input.files.length === 1 ? input.files[0].name : input.files.length + ' files chosen';
       drop.querySelector('.drop-name').textContent = name;
       drop.classList.toggle('chosen', input.files.length > 0);
     });
@@ -56,6 +66,7 @@
   document.querySelectorAll('input[name=report_type]').forEach(function (r) {
     r.addEventListener('change', function () {
       document.getElementById('period').textContent = r.value === 'monthly' ? 'month' : 'week';
+      document.getElementById('activity-box').hidden = r.value !== 'monthly';
     });
   });
   document.getElementById('upload-form').addEventListener('submit', function () {

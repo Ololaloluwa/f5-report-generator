@@ -11,6 +11,7 @@
 
 weekly_output/
 monthly_output/
+activity_reports/
 venv/
 .venv/
 __pycache__/

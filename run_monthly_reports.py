@@ -3,10 +3,12 @@
 Monthly MTN F5 Reports - run everything
 ==========================================
 
-One command that builds BOTH monthly outputs from MTN_F5_ATTACKS_SOURCE.xlsx
+One command that builds the monthly outputs from MTN_F5_ATTACKS_SOURCE.xlsx
 and then checks them:
   1. PowerPoint deck      (generate_monthly_report.py, weekly template)
   2. Detailed WAF Excel   (generate_monthly_excel.py, weekly template)
+  2b. Monthly activity report (generate_activity_report.py) - only when the
+      month's weekly activity reports are given (--activity-dir)
   3. Checks               ([PASS] / [WARN] / [FAIL] lines - a [FAIL] means
                            don't send it without looking; [WARN]s are notes,
                            e.g. daily tables that don't add up to the weekly
@@ -20,6 +22,7 @@ Usage:
         --out-dir ./monthly_output \
         [--month 2026-09]            # default: the newest month the source fully covers
         [--certs Certificate.xlsx]   # certificate slides are skipped if it's missing
+        [--activity-dir activity_reports]   # weekly activity reports -> monthly activity report
 
 Output files are named after the month, e.g.:
     monthly_output/MTN_Security_Metrics_Report_September2026.pptx
@@ -30,6 +33,7 @@ web app all call - one code path, whichever way it's run.
 """
 
 import argparse
+import gc
 import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -40,6 +44,7 @@ from pptx import Presentation
 import generate_weekly_report as wk
 import generate_monthly_report as mon
 import generate_monthly_excel as mx
+import generate_activity_report as act
 
 KPI_JUMP_WARN_RATIO = 0.5      # warn if a site's month moved more than +-50% vs last month
 
@@ -54,6 +59,7 @@ class MonthlyResult:
     log: list = field(default_factory=list)       # every line printed
     warnings: list = field(default_factory=list)  # the [WARN] lines
     checks: list = field(default_factory=list)    # the [PASS]/[WARN]/[FAIL] lines
+    activity_path: str = None                     # the monthly activity report, if one was built
 
 
 def _days_text(days):
@@ -119,11 +125,15 @@ def _load_certs(certs_path, ym, out):
 
 
 def generate_monthly_reports(source, pptx_template, xlsx_template, out_dir,
-                             month=None, certs="Certificate.xlsx", log=print):
+                             month=None, certs="Certificate.xlsx", log=print,
+                             activity_files=None, activity_names=None):
     """
     Builds the monthly deck + Excel for `month` ((year, month) or None = the
     newest month the source fully covers), checks them, and returns a
-    MonthlyResult. `log` gets every progress line.
+    MonthlyResult. `log` gets every progress line. activity_files: the
+    month's weekly activity report workbooks (any order, extra weeks are
+    ignored) -> also builds the monthly activity report; activity_names:
+    their original file names, for messages (optional).
     """
     lines = []
 
@@ -205,10 +215,32 @@ def generate_monthly_reports(source, pptx_template, xlsx_template, out_dir,
         out(c)
     ok = not any(c.startswith("[FAIL]") for c in checks)
 
+    activity_path = None
+    if activity_files:
+        # the WAF month data isn't needed any more - free it before opening the weekly
+        # activity workbooks, so the two never sit in memory together (Render's 512 MB)
+        del ctx, site_trends, total_trend
+        gc.collect()
+        out()
+        out("=" * 60)
+        out(f"MONTHLY ACTIVITY REPORT ({len(activity_files)} weekly file(s) given)")
+        out("=" * 60)
+        res = act.build_activity_report(activity_files, ym, os.path.join(out_dir, act.activity_file_name(ym)),
+                                        warn=warn, names=activity_names)
+        if res is not None:
+            activity_path = res.path
+            for key, name in res.weeks_used:
+                out(f"  used {key[0]:%d %b} - {key[1]:%d %b}: {name}")
+            out(f"  health check sheets: " + ", ".join(
+                f"Week {i} ({act._span(days)})" for i, days in enumerate(res.health_weeks, start=1)))
+            out(f"  {res.cases} case(s) in the Overview, {res.case_sheets} case screenshot sheet(s); "
+                f"devices: DNS {len(res.stats['DNS'].nodes)}, LTM {len(res.stats['LTM'].nodes)}")
+            out(f"Wrote {activity_path}")
+
     return MonthlyResult(
         month=ym, month_label=label, pptx_path=pptx_out, xlsx_path=xlsx_out, ok=ok, log=lines,
         warnings=[l.strip() for l in lines if "[WARN]" in l and not l.startswith("[WARN]")],
-        checks=checks,
+        checks=checks, activity_path=activity_path,
     )
 
 
@@ -277,10 +309,20 @@ def main():
                     help="e.g. 2026-09 or 'Sep 2026' - defaults to the newest month the source fully covers")
     ap.add_argument("--certs", default="Certificate.xlsx",
                     help="Certificate workbook for the certificate slides (skipped with a warning if missing)")
+    ap.add_argument("--activity-dir", default=None,
+                    help="Folder holding the month's weekly activity reports (.xlsx) - builds the monthly "
+                         "activity report too (skipped if the folder is missing or empty)")
     args = ap.parse_args()
     month = mon.parse_month(args.month) if args.month else None
+    activity = None
+    if args.activity_dir:
+        if os.path.isdir(args.activity_dir):
+            activity = sorted(os.path.join(args.activity_dir, f) for f in os.listdir(args.activity_dir)
+                              if f.lower().endswith(".xlsx") and not f.startswith("~$"))
+        if not activity:
+            print(f"(No weekly activity reports in '{args.activity_dir}' - the monthly activity report is skipped.)")
     result = generate_monthly_reports(args.source, args.pptx_template, args.xlsx_template, args.out_dir,
-                                      month=month, certs=args.certs)
+                                      month=month, certs=args.certs, activity_files=activity)
     print()
     if result.ok:
         print("All checks passed." + (" Glance at the [WARN] notes above." if result.warnings else ""))

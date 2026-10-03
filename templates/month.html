@@ -15,6 +15,7 @@
     </div>
     <p class="hint">A month with days not in the file yet can still be generated - those days just aren't counted, and the report says so. Pool member status is taken from the last day of the month.</p>
     <p class="hint">Certificates: {{ certs[1] }}.</p>
+    <p class="hint">{% if activity_count %}Monthly activity report: built from the {{ activity_count }} weekly activity report{{ 's' if activity_count != 1 }} you uploaded (only the ones for the chosen month are used).{% else %}No weekly activity reports uploaded, so there's no monthly activity report this time.{% endif %}</p>
     <button class="primary" type="submit" id="gen-btn"><span class="spinner" aria-hidden="true"></span><span class="label">Generate report</span></button>
     <p class="hint" id="working" hidden>Generating… about a minute (a bit longer if someone else is generating one too).</p>
   </form>

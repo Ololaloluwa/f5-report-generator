@@ -60,6 +60,7 @@ import time
 from datetime import date, timedelta
 from functools import wraps
 
+from werkzeug.utils import secure_filename
 from flask import (
     Flask, abort, flash, redirect, render_template, request, send_file,
     session, url_for,
@@ -327,6 +328,15 @@ def upload():
     open(os.path.join(path, "created"), "w").close()
     if report_type == "monthly":
         open(os.path.join(path, "monthly"), "w").close()
+        # weekly activity reports (optional) - kept under their own names, because a
+        # file's name is one of the ways its week is worked out
+        n = 0
+        for f in request.files.getlist("activity"):
+            if f and f.filename and f.filename.lower().endswith(".xlsx"):
+                os.makedirs(os.path.join(path, "activity"), exist_ok=True)
+                name = secure_filename(os.path.basename(f.filename)) or f"activity_{n}.xlsx"
+                f.save(os.path.join(path, "activity", f"{n:02d}__{name}"))
+                n += 1
     source.save(os.path.join(path, "source.xlsx"))
     if certs and certs.filename:
         certs.save(os.path.join(path, "certs.xlsx"))
@@ -353,7 +363,7 @@ def job(job_id):
     if _is_monthly(path):
         info = _read_months(os.path.join(path, "source.xlsx"))
         return render_template("month.html", job_id=job_id, info=info, step=2, monthly=True,
-                               certs=_certs_choice(path))
+                               certs=_certs_choice(path), activity_count=len(_activity_files(path)[0]))
     info = _read_weeks(os.path.join(path, "source.xlsx"))
     return render_template("week.html", job_id=job_id, info=info, step=2,
                            certs=_certs_choice(path))
@@ -411,6 +421,15 @@ def generate(job_id):
         certs=_certs_choice(path), step=3)
 
 
+def _activity_files(job_path):
+    """(paths, original names) of the weekly activity reports uploaded with this job."""
+    folder = os.path.join(job_path, "activity")
+    if not os.path.isdir(folder):
+        return [], []
+    files = sorted(f for f in os.listdir(folder) if f.lower().endswith(".xlsx"))
+    return [os.path.join(folder, f) for f in files], [f.split("__", 1)[-1] for f in files]
+
+
 def _generate_monthly(job_id, path):
     try:
         year, month = (int(x) for x in request.form["month"].split("-"))
@@ -425,7 +444,8 @@ def _generate_monthly(job_id, path):
         try:
             result = run_monthly_reports.generate_monthly_reports(
                 os.path.join(path, "source.xlsx"), PPTX_TEMPLATE, XLSX_TEMPLATE, out_dir,
-                month=(year, month), log=lambda _m: None, certs=_certs_choice(path)[0])
+                month=(year, month), log=lambda _m: None, certs=_certs_choice(path)[0],
+                activity_files=_activity_files(path)[0] or None, activity_names=_activity_files(path)[1])
         except Exception as e:
             app.logger.exception("monthly report generation failed")
             return render_template("message.html", title="Something went wrong",
@@ -441,6 +461,7 @@ def _generate_monthly(job_id, path):
         monthly=True, fails=[l for l in lines if l.startswith("[FAIL]")], warnings=warnings,
         passes=[l for l in lines if l.startswith("[PASS]")],
         pptx_name=os.path.basename(result.pptx_path), xlsx_name=os.path.basename(result.xlsx_path),
+        activity_name=os.path.basename(result.activity_path) if result.activity_path else None,
         certs=_certs_choice(path), step=3)
 
 
@@ -449,10 +470,15 @@ def _generate_monthly(job_id, path):
 def download(job_id, kind):
     path = _job_dir(job_id)
     out_dir = os.path.join(path, "output")
-    wanted = {"pptx": ".pptx", "xlsx": ".xlsx"}.get(kind)
-    if wanted is None or not os.path.isdir(out_dir):
+    # the monthly run writes two Excel files, so they're told apart by name
+    match = {
+        "pptx": lambda f: f.endswith(".pptx"),
+        "xlsx": lambda f: f.endswith(".xlsx") and not f.startswith("F5_Monthly_Activity_Report"),
+        "activity": lambda f: f.startswith("F5_Monthly_Activity_Report") and f.endswith(".xlsx"),
+    }.get(kind)
+    if match is None or not os.path.isdir(out_dir):
         abort(404)
-    files = [f for f in os.listdir(out_dir) if f.endswith(wanted)]
+    files = [f for f in os.listdir(out_dir) if match(f)]
     if not files:
         abort(404)
     return send_file(os.path.join(out_dir, files[0]), as_attachment=True, download_name=files[0])

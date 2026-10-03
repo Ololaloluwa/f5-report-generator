@@ -33,6 +33,13 @@
       <span class="file-text"><strong>Excel workbook</strong><small>{{ xlsx_name }}</small></span>
       <span class="file-go" aria-hidden="true">↓</span>
     </a>
+    {% if activity_name %}
+    <a class="file" href="{{ url_for('download', job_id=job_id, kind='activity') }}">
+      <span class="file-icon xlsx">XLS</span>
+      <span class="file-text"><strong>Monthly activity report</strong><small>{{ activity_name }}</small></span>
+      <span class="file-go" aria-hidden="true">↓</span>
+    </a>
+    {% endif %}
   </div>
 
   {% if warnings %}

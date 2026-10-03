@@ -200,3 +200,7 @@ button, .secondary { font: inherit; cursor: pointer; }
   h1 { font-size: 22px; }
   .steps li + li::before { width: 10px; }
 }
+
+/* optional tag on the weekly activity reports upload (monthly only) */
+.drop-title .opt { font-style: normal; font-weight: 500; font-size: 11px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 99px; padding: 0 7px; margin-left: 4px; }
+.activity .hint { margin-top: 0; }
